@@ -10,6 +10,7 @@ const DEFAULT_FAVICON_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 
 const defaultContent = {
   updatedAt: new Date(0).toISOString(),
+  cloudConfigMirror: null,
   pageTitle: 'reeyanu — bio',
   metaDescription: 'reeyanu aka Aleksandr — 16 y.o. developer. bio, projects, contacts.',
   seoKeywords: 'reeyanu, bio, links',
@@ -95,6 +96,7 @@ function normalizeContent(input) {
   return {
     ...clone(defaultContent),
     ...parsed,
+    cloudConfigMirror: parsed.cloudConfigMirror ? normalizeCloudConfig(parsed.cloudConfigMirror) : null,
     profileCard: { ...defaultContent.profileCard, ...(parsed.profileCard || {}) },
     contact: { ...defaultContent.contact, ...(parsed.contact || {}) },
     projects: Array.isArray(parsed.projects) ? parsed.projects : defaultContent.projects,
@@ -127,6 +129,30 @@ function normalizeCloudConfig(input) {
 
 function isCloudConfigured(config) {
   return Boolean(config.enabled && config.url && config.anonKey);
+}
+
+function buildCloudMirror(config) {
+  const normalized = normalizeCloudConfig({ ...config, enabled: true });
+  if (!normalized.url || !normalized.anonKey) return null;
+  return {
+    enabled: true,
+    autoSync: normalized.autoSync,
+    pollIntervalMs: normalized.pollIntervalMs,
+    url: normalized.url,
+    anonKey: normalized.anonKey,
+    contentTable: normalized.contentTable,
+    eventsTable: normalized.eventsTable,
+    rowKey: normalized.rowKey
+  };
+}
+
+function applyCloudMirrorFromContent(content, cloudRef) {
+  if (!content || !content.cloudConfigMirror) return false;
+  const mirror = normalizeCloudConfig({ ...content.cloudConfigMirror, enabled: true });
+  if (!mirror.url || !mirror.anonKey) return false;
+  cloudRef.value = normalizeCloudConfig({ ...cloudRef.value, ...mirror, enabled: true });
+  saveCloudConfig(cloudRef.value);
+  return true;
 }
 
 function loadContent() {
@@ -250,9 +276,11 @@ async function cloudCheckApi(config) {
 
 async function cloudPushContent(config, content) {
   if (!isCloudConfigured(config)) return null;
+  const normalizedContent = normalizeContent(content);
+  normalizedContent.cloudConfigMirror = buildCloudMirror(config);
   const payload = [{
     key: config.rowKey,
-    data: normalizeContent(content),
+    data: normalizedContent,
     updated_at: new Date().toISOString()
   }];
   const url = `${config.url}/rest/v1/${config.contentTable}`;
@@ -266,7 +294,7 @@ async function cloudPushContent(config, content) {
   if (!response.ok) throw new Error(`cloud push failed: ${response.status}`);
   const rows = await response.json();
   const row = Array.isArray(rows) ? rows[0] : null;
-  return normalizeContent(row?.data || content);
+  return normalizeContent(row?.data || normalizedContent);
 }
 
 async function cloudTrackEvent(config, eventType, urlValue = '') {
@@ -550,6 +578,8 @@ async function syncContentFromCloud(cloudConfig, contentRef, cloudRef, cloudStat
     updateCloudStatusView(cloudState);
     return null;
   }
+
+  applyCloudMirrorFromContent(remote, cloudRef);
 
   const remoteTime = Date.parse(remote.updatedAt || '') || 0;
   const localTime = Date.parse(contentRef.value.updatedAt || '') || 0;
@@ -1016,6 +1046,15 @@ function setupAdmin(contentRef, cloudRef, cloudState, cloudPolling) {
     return false;
   };
 
+  const persistCloudDraft = () => {
+    if (!ensureUnlocked()) return;
+    cloudRef.value = readCloudForm();
+    cloudState.enabled = isCloudConfigured(cloudRef.value);
+    cloudState.autoSync = Boolean(cloudRef.value.autoSync);
+    saveCloudConfig(cloudRef.value);
+    updateCloudStatusView(cloudState);
+  };
+
   const applyCloudSettingsFromFields = () => {
     if (!ensureUnlocked()) return;
     cloudRef.value = readCloudForm();
@@ -1029,6 +1068,12 @@ function setupAdmin(contentRef, cloudRef, cloudState, cloudPolling) {
 
   fields.cloudAutoSync?.addEventListener('change', applyCloudSettingsFromFields);
   fields.cloudInterval?.addEventListener('change', applyCloudSettingsFromFields);
+  fields.cloudEnabled?.addEventListener('change', applyCloudSettingsFromFields);
+  fields.cloudUrl?.addEventListener('input', persistCloudDraft);
+  fields.cloudKey?.addEventListener('input', persistCloudDraft);
+  fields.cloudContentTable?.addEventListener('change', persistCloudDraft);
+  fields.cloudEventsTable?.addEventListener('change', persistCloudDraft);
+  fields.cloudRowKey?.addEventListener('input', persistCloudDraft);
 
   fields.heroAvatarFile.addEventListener('change', () => {
     if (!ensureUnlocked()) return;

@@ -60,8 +60,11 @@ a:hover{filter:brightness(1.1)}
 .stat-item{background:#0f1218;border:1px solid #232838;border-radius:10px;padding:12px}
 
 .admin-block{border-style:dashed}
-.admin-stealth{position:fixed;left:50%;bottom:10px;transform:translateX(-50%) translateY(calc(100% - 26px));width:min(980px,calc(100% - 18px));max-height:86vh;overflow:auto;z-index:1200;opacity:.2;transition:transform .3s ease, opacity .3s ease, box-shadow .3s ease;border-color:#2a2f3a}
-.admin-stealth:hover,.admin-stealth.admin-pinned{transform:translateX(-50%) translateY(0);opacity:1;box-shadow:0 18px 42px rgba(0,0,0,.5)}
+.admin-stealth{position:fixed;left:50vw;bottom:10px;margin:0;transform:translateX(-50%) translateY(calc(100% - 28px));width:min(980px,calc(100vw - 18px));max-height:34px;overflow:hidden;z-index:1200;opacity:.12;transition:transform .32s ease, opacity .32s ease, box-shadow .32s ease, max-height .32s ease;border-color:#2a2f3a;transition-delay:0s}
+.admin-stealth::after{content:'';position:absolute;left:50%;bottom:6px;transform:translateX(-50%);width:74px;height:4px;border-radius:999px;background:#2a2f3a;opacity:.8}
+.admin-stealth:not(.admin-pinned):hover{transform:translateX(-50%) translateY(0);opacity:1;max-height:86vh;overflow:auto;box-shadow:0 18px 42px rgba(0,0,0,.5);transition-delay:3s,3s,3s,3s}
+.admin-stealth.admin-pinned{transform:translateX(-50%) translateY(0);opacity:1;max-height:86vh;overflow:auto;box-shadow:0 18px 42px rgba(0,0,0,.5)}
+.admin-stealth.admin-pinned::after,.admin-stealth:hover::after{opacity:0}
 .admin-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .admin-content{margin-top:16px}
 .format-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:10px;border:1px dashed #2a2f3a;border-radius:12px;background:#0d0f13}
@@ -97,7 +100,7 @@ a:hover{filter:brightness(1.1)}
   .container{padding:36px 18px 120px}
   .admin-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
   .cards{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
-  .admin-stealth{width:min(980px,calc(100% - 12px));bottom:6px}
+  .admin-stealth{width:min(980px,calc(100vw - 12px));bottom:6px}
 }
 
 /* phone */
@@ -115,7 +118,8 @@ a:hover{filter:brightness(1.1)}
   .profile-card-badge{width:26px;height:26px;font-size:13px}
   .format-tools{gap:6px;padding:8px}
   .format-tools .btn{padding:6px 8px}
-  .admin-stealth{transform:translateX(-50%) translateY(calc(100% - 32px));max-height:78vh}
+  .admin-stealth{transform:translateX(-50%) translateY(calc(100% - 32px));max-height:38px}
+  .admin-stealth:not(.admin-pinned):hover{max-height:78vh}
 }
 
 /* very small phone */
@@ -140,7 +144,7 @@ a:hover{filter:brightness(1.1)}
   .btn{font-size:17px;padding:14px 18px}
   .profile-card{min-height:340px}
   .profile-card img{min-height:340px}
-  .admin-stealth{width:min(1280px,calc(100% - 24px));bottom:14px}
+  .admin-stealth{width:min(1280px,calc(100vw - 24px));bottom:14px}
 }
 
 @media (prefers-reduced-motion: reduce){
