@@ -4,6 +4,7 @@ const STORAGE_ADMIN_OPEN_KEY = 'reey-site-admin-open';
 const STORAGE_CLOUD_KEY = 'reey-site-cloud-v1';
 const STORAGE_ADMIN_PASS_HASH_KEY = 'reey-site-admin-pass-hash-v1';
 const STORAGE_ADMIN_UNLOCKED_KEY = 'reey-site-admin-unlocked-v1';
+const CLOUD_POLL_INTERVAL_MS = 10000;
 
 const defaultContent = {
   updatedAt: new Date(0).toISOString(),
@@ -207,6 +208,18 @@ async function cloudPullContent(config) {
   const content = normalizeContent(row.data || {});
   content.updatedAt = row.updated_at || content.updatedAt;
   return content;
+}
+
+async function cloudCheckApi(config) {
+  if (!isCloudConfigured(config)) return { ok: false, message: 'cloud off' };
+  const url = `${config.url}/rest/v1/${config.contentTable}?select=key&limit=1`;
+  try {
+    const response = await fetch(url, { headers: supabaseHeaders(config, false) });
+    if (!response.ok) return { ok: false, message: `http ${response.status}` };
+    return { ok: true, message: 'online' };
+  } catch {
+    return { ok: false, message: 'offline' };
+  }
 }
 
 async function cloudPushContent(config, content) {
@@ -422,6 +435,58 @@ function renderAdminStats(stats) {
   out.textContent = `visits: ${stats.visitsTotal}\nexternal clicks: ${stats.externalClicksTotal}\n\nby url:\n${lines}`;
 }
 
+function formatDateTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('ru-RU');
+}
+
+function updateCloudStatusView(cloudState) {
+  const mode = document.getElementById('cloud-status-mode');
+  const api = document.getElementById('cloud-status-api');
+  const content = document.getElementById('cloud-status-content');
+  const stats = document.getElementById('cloud-status-stats');
+  const lastSync = document.getElementById('cloud-status-last-sync');
+  if (!mode || !api || !content || !stats || !lastSync) return;
+
+  mode.textContent = cloudState.enabled ? 'enabled' : 'off';
+  api.textContent = cloudState.apiMessage || 'unknown';
+  content.textContent = cloudState.contentMessage || 'idle';
+  stats.textContent = cloudState.statsMessage || 'idle';
+  lastSync.textContent = formatDateTime(cloudState.lastSyncAt);
+}
+
+async function syncContentFromCloud(cloudConfig, contentRef, cloudRef, cloudState) {
+  if (!isCloudConfigured(cloudConfig)) {
+    cloudState.contentMessage = 'cloud off';
+    updateCloudStatusView(cloudState);
+    return null;
+  }
+
+  const remote = await cloudPullContent(cloudConfig);
+  if (!remote) {
+    cloudState.contentMessage = 'empty';
+    updateCloudStatusView(cloudState);
+    return null;
+  }
+
+  const remoteTime = Date.parse(remote.updatedAt || '') || 0;
+  const localTime = Date.parse(contentRef.value.updatedAt || '') || 0;
+  if (remoteTime > localTime) {
+    contentRef.value = normalizeContent(remote);
+    saveContent(contentRef.value);
+    renderContent(contentRef.value, cloudRef);
+    writeAdminForm(contentRef.value, cloudRef.value);
+    cloudState.contentMessage = 'updated from cloud';
+  } else {
+    cloudState.contentMessage = 'up to date';
+  }
+  cloudState.lastSyncAt = new Date().toISOString();
+  updateCloudStatusView(cloudState);
+  return contentRef.value;
+}
+
 async function syncStatsFromCloud(cloudConfig) {
   if (!isCloudConfigured(cloudConfig)) return null;
   const cloudStats = await cloudFetchStats(cloudConfig);
@@ -430,6 +495,64 @@ async function syncStatsFromCloud(cloudConfig) {
   updateStatsView(cloudStats);
   renderAdminStats(cloudStats);
   return cloudStats;
+}
+
+async function syncStatsFromCloudWithState(cloudConfig, cloudState) {
+  if (!isCloudConfigured(cloudConfig)) {
+    cloudState.statsMessage = 'cloud off';
+    updateCloudStatusView(cloudState);
+    return null;
+  }
+  const cloudStats = await syncStatsFromCloud(cloudConfig);
+  cloudState.statsMessage = cloudStats ? 'synced' : 'empty';
+  cloudState.lastSyncAt = new Date().toISOString();
+  updateCloudStatusView(cloudState);
+  return cloudStats;
+}
+
+function startCloudPolling(contentRef, cloudRef, cloudState) {
+  let timerId = null;
+
+  const stop = () => {
+    if (timerId) {
+      clearInterval(timerId);
+      timerId = null;
+    }
+  };
+
+  const runCycle = async () => {
+    const config = cloudRef.value;
+    cloudState.enabled = isCloudConfigured(config);
+    if (!cloudState.enabled) {
+      cloudState.apiMessage = 'cloud off';
+      cloudState.contentMessage = 'cloud off';
+      cloudState.statsMessage = 'cloud off';
+      updateCloudStatusView(cloudState);
+      return;
+    }
+
+    const health = await cloudCheckApi(config);
+    cloudState.apiMessage = health.message;
+    updateCloudStatusView(cloudState);
+    if (!health.ok) return;
+
+    try {
+      await syncContentFromCloud(config, contentRef, cloudRef, cloudState);
+      await syncStatsFromCloudWithState(config, cloudState);
+    } catch {
+      cloudState.contentMessage = 'sync error';
+      cloudState.statsMessage = 'sync error';
+      updateCloudStatusView(cloudState);
+    }
+  };
+
+  const restart = () => {
+    stop();
+    runCycle();
+    timerId = window.setInterval(runCycle, CLOUD_POLL_INTERVAL_MS);
+  };
+
+  return { restart, stop, runCycle };
 }
 
 function trackExternalClick(url, cloudConfig) {
@@ -639,7 +762,7 @@ async function unlockAdminFromInput() {
   return true;
 }
 
-function setupAdmin(contentRef, cloudRef) {
+function setupAdmin(contentRef, cloudRef, cloudState, cloudPolling) {
   const adminToggle = document.getElementById('admin-toggle');
   const adminContent = document.getElementById('admin-content');
   const saveButton = document.getElementById('admin-save');
@@ -720,6 +843,7 @@ function setupAdmin(contentRef, cloudRef) {
       const next = readAdminContentForm(contentRef.value);
       const cloud = readCloudForm();
       cloudRef.value = cloud;
+      cloudState.enabled = isCloudConfigured(cloudRef.value);
       saveCloudConfig(cloud);
 
       contentRef.value = next;
@@ -728,9 +852,17 @@ function setupAdmin(contentRef, cloudRef) {
       setupTypewriter(next.welcomeTitle);
 
       if (isCloudConfigured(cloudRef.value)) {
-        await cloudPushContent(cloudRef.value, contentRef.value);
+        const savedRemote = await cloudPushContent(cloudRef.value, contentRef.value);
+        if (savedRemote) {
+          contentRef.value = normalizeContent(savedRemote);
+          saveContent(contentRef.value);
+        }
+        cloudState.contentMessage = 'pushed';
+        cloudState.lastSyncAt = new Date().toISOString();
       }
 
+      updateCloudStatusView(cloudState);
+      cloudPolling.restart();
       status('сохранено');
     } catch (error) {
       status(error instanceof Error ? error.message : 'ошибка сохранения', true);
@@ -749,8 +881,12 @@ function setupAdmin(contentRef, cloudRef) {
 
       if (isCloudConfigured(cloudRef.value)) {
         await cloudPushContent(cloudRef.value, contentRef.value);
+        cloudState.contentMessage = 'reset + pushed';
+        cloudState.lastSyncAt = new Date().toISOString();
       }
 
+      updateCloudStatusView(cloudState);
+      cloudPolling.restart();
       status('сброшено к оригиналу');
     } catch {
       status('ошибка при сбросе', true);
@@ -800,21 +936,19 @@ function setupAdmin(contentRef, cloudRef) {
     if (!ensureUnlocked()) return;
     try {
       cloudRef.value = readCloudForm();
+      cloudState.enabled = isCloudConfigured(cloudRef.value);
       saveCloudConfig(cloudRef.value);
       if (!isCloudConfigured(cloudRef.value)) {
         status('заполните Supabase URL и anon key + включите cloud mode', true);
         return;
       }
-      const cloudData = await cloudPullContent(cloudRef.value);
+      const cloudData = await syncContentFromCloud(cloudRef.value, contentRef, cloudRef, cloudState);
       if (!cloudData) {
         status('в облаке пока нет контента');
         return;
       }
-      contentRef.value = normalizeContent(cloudData);
-      saveContent(contentRef.value);
-      writeAdminForm(contentRef.value, cloudRef.value);
-      renderContent(contentRef.value, cloudRef);
       setupTypewriter(contentRef.value.welcomeTitle);
+      cloudPolling.restart();
       status('контент загружен из облака');
     } catch (error) {
       status(error instanceof Error ? error.message : 'cloud pull error', true);
@@ -825,6 +959,7 @@ function setupAdmin(contentRef, cloudRef) {
     if (!ensureUnlocked()) return;
     try {
       cloudRef.value = readCloudForm();
+      cloudState.enabled = isCloudConfigured(cloudRef.value);
       saveCloudConfig(cloudRef.value);
       if (!isCloudConfigured(cloudRef.value)) {
         status('заполните Supabase URL и anon key + включите cloud mode', true);
@@ -833,6 +968,10 @@ function setupAdmin(contentRef, cloudRef) {
       contentRef.value = readAdminContentForm(contentRef.value);
       saveContent(contentRef.value);
       await cloudPushContent(cloudRef.value, contentRef.value);
+      cloudState.contentMessage = 'pushed';
+      cloudState.lastSyncAt = new Date().toISOString();
+      updateCloudStatusView(cloudState);
+      cloudPolling.restart();
       status('контент отправлен в облако');
     } catch (error) {
       status(error instanceof Error ? error.message : 'cloud push error', true);
@@ -843,12 +982,14 @@ function setupAdmin(contentRef, cloudRef) {
     if (!ensureUnlocked()) return;
     try {
       cloudRef.value = readCloudForm();
+      cloudState.enabled = isCloudConfigured(cloudRef.value);
       saveCloudConfig(cloudRef.value);
       if (!isCloudConfigured(cloudRef.value)) {
         status('заполните Supabase URL и anon key + включите cloud mode', true);
         return;
       }
-      await syncStatsFromCloud(cloudRef.value);
+      await syncStatsFromCloudWithState(cloudRef.value, cloudState);
+      cloudPolling.restart();
       status('статистика синхронизирована с облаком');
     } catch (error) {
       status(error instanceof Error ? error.message : 'cloud stats sync error', true);
@@ -864,11 +1005,16 @@ function setupAdmin(contentRef, cloudRef) {
       renderAdminStats(empty);
 
       cloudRef.value = readCloudForm();
+      cloudState.enabled = isCloudConfigured(cloudRef.value);
       saveCloudConfig(cloudRef.value);
       if (isCloudConfigured(cloudRef.value)) {
         await cloudClearStats(cloudRef.value);
+        cloudState.statsMessage = 'cleared';
+        cloudState.lastSyncAt = new Date().toISOString();
       }
 
+      updateCloudStatusView(cloudState);
+      cloudPolling.restart();
       status('статистика очищена');
     } catch (error) {
       status(error instanceof Error ? error.message : 'ошибка очистки статистики', true);
@@ -904,19 +1050,21 @@ function setupAdmin(contentRef, cloudRef) {
 (async function init() {
   const contentRef = { value: loadContent() };
   const cloudRef = { value: loadCloudConfig() };
+  const cloudState = {
+    enabled: isCloudConfigured(cloudRef.value),
+    apiMessage: 'unknown',
+    contentMessage: 'idle',
+    statsMessage: 'idle',
+    lastSyncAt: ''
+  };
+  const cloudPolling = startCloudPolling(contentRef, cloudRef, cloudState);
 
   if (isCloudConfigured(cloudRef.value)) {
     try {
-      const remote = await cloudPullContent(cloudRef.value);
-      if (remote) {
-        const remoteTime = Date.parse(remote.updatedAt || '') || 0;
-        const localTime = Date.parse(contentRef.value.updatedAt || '') || 0;
-        if (remoteTime >= localTime) {
-          contentRef.value = normalizeContent(remote);
-          saveContent(contentRef.value);
-        }
-      }
+      await syncContentFromCloud(cloudRef.value, contentRef, cloudRef, cloudState);
     } catch {}
+  } else {
+    updateCloudStatusView(cloudState);
   }
 
   renderContent(contentRef.value, cloudRef);
@@ -931,9 +1079,10 @@ function setupAdmin(contentRef, cloudRef) {
   if (isCloudConfigured(cloudRef.value)) {
     try {
       await cloudTrackEvent(cloudRef.value, 'visit');
-      await syncStatsFromCloud(cloudRef.value);
+      await syncStatsFromCloudWithState(cloudRef.value, cloudState);
     } catch {}
   }
 
-  setupAdmin(contentRef, cloudRef);
+  setupAdmin(contentRef, cloudRef, cloudState, cloudPolling);
+  cloudPolling.restart();
 })();

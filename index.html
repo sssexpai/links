@@ -117,6 +117,14 @@
             <label>Content row key<input id="admin-cloud-row-key" type="text" value="main" /></label>
           </div>
 
+          <div class="cloud-status-panel" id="cloud-status-panel">
+            <div class="cloud-status-row"><span class="muted">cloud:</span> <span id="cloud-status-mode">off</span></div>
+            <div class="cloud-status-row"><span class="muted">api:</span> <span id="cloud-status-api">unknown</span></div>
+            <div class="cloud-status-row"><span class="muted">content sync:</span> <span id="cloud-status-content">idle</span></div>
+            <div class="cloud-status-row"><span class="muted">stats sync:</span> <span id="cloud-status-stats">idle</span></div>
+            <div class="cloud-status-row"><span class="muted">last sync:</span> <span id="cloud-status-last-sync">—</span></div>
+          </div>
+
           <div class="admin-actions">
             <button class="btn primary" id="admin-save" type="button">save changes</button>
             <button class="btn" id="admin-reset" type="button">reset to default</button>
