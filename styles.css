@@ -66,8 +66,10 @@ a:hover{filter:brightness(1.1)}
 
 .admin-block{border-style:dashed}
 .admin-hover-zone{position:fixed;left:0;right:0;bottom:0;height:10px;z-index:1199;background:transparent}
-.admin-stealth{position:fixed;left:50vw;bottom:10px;margin:0;padding:0;transform:translateX(-50%) translateY(150px);width:min(980px,calc(100vw - 18px));max-height:0;overflow:hidden;z-index:1200;opacity:0;pointer-events:none;transition:transform .32s ease, opacity .32s ease, box-shadow .32s ease, max-height .32s ease, padding .32s ease;border-color:#2a2f3a}
-.admin-stealth.admin-hover-open,.admin-stealth.admin-pinned{transform:translateX(-50%) translateY(0);opacity:1;max-height:86vh;overflow:auto;pointer-events:auto;box-shadow:0 18px 42px rgba(0,0,0,.5);padding:22px 22px 20px}
+.admin-stealth{position:fixed;left:50vw;bottom:10px;margin:0;padding:0;transform:translateX(-50%) translateY(200px);width:min(980px,calc(100vw - 18px));max-height:0;overflow:hidden;z-index:1200;opacity:0;visibility:hidden;pointer-events:none;transition:transform .32s ease, opacity .32s ease, box-shadow .32s ease, max-height .32s ease, padding .32s ease, visibility 0s linear .32s;border-color:#2a2f3a}
+.admin-stealth::before{display:none}
+.admin-stealth.admin-hover-open,.admin-stealth.admin-pinned{transform:translateX(-50%) translateY(0);opacity:1;visibility:visible;max-height:86vh;overflow:auto;pointer-events:auto;box-shadow:0 18px 42px rgba(0,0,0,.5);padding:22px 22px 20px;transition:transform .32s ease, opacity .32s ease, box-shadow .32s ease, max-height .32s ease, padding .32s ease, visibility 0s linear 0s}
+.admin-stealth.admin-hover-open::before,.admin-stealth.admin-pinned::before{display:block}
 .admin-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .admin-content{margin-top:16px}
 .format-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:10px;border:1px dashed #2a2f3a;border-radius:12px;background:#0d0f13}
