@@ -4,7 +4,8 @@ const STORAGE_ADMIN_OPEN_KEY = 'reey-site-admin-open';
 const STORAGE_CLOUD_KEY = 'reey-site-cloud-v1';
 const STORAGE_ADMIN_PASS_HASH_KEY = 'reey-site-admin-pass-hash-v1';
 const STORAGE_ADMIN_UNLOCKED_KEY = 'reey-site-admin-unlocked-v1';
-const CLOUD_POLL_INTERVAL_MS = 10000;
+const DEFAULT_CLOUD_POLL_INTERVAL_MS = 10000;
+const ALLOWED_CLOUD_INTERVALS = [5000, 10000, 15000, 30000, 60000, 120000];
 const DEFAULT_FAVICON_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230b0c0f'/%3E%3Cpath d='M20 52h60' stroke='%23ff7a18' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M40 30l-20 22 20 22' fill='none' stroke='%23ff7a18' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
 
 const defaultContent = {
@@ -70,12 +71,20 @@ const defaultContent = {
 
 const defaultCloudConfig = {
   enabled: false,
+  autoSync: true,
+  pollIntervalMs: DEFAULT_CLOUD_POLL_INTERVAL_MS,
   url: '',
   anonKey: '',
   contentTable: 'site_content',
   eventsTable: 'site_events',
   rowKey: 'main'
 };
+
+function sanitizePollIntervalMs(value) {
+  const parsed = Number(value);
+  if (ALLOWED_CLOUD_INTERVALS.includes(parsed)) return parsed;
+  return DEFAULT_CLOUD_POLL_INTERVAL_MS;
+}
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -106,6 +115,8 @@ function normalizeCloudConfig(input) {
   const parsed = input && typeof input === 'object' ? input : {};
   return {
     enabled: Boolean(parsed.enabled),
+    autoSync: parsed.autoSync !== false,
+    pollIntervalMs: sanitizePollIntervalMs(parsed.pollIntervalMs),
     url: String(parsed.url || '').trim().replace(/\/+$/, ''),
     anonKey: String(parsed.anonKey || '').trim(),
     contentTable: sanitizeIdentifier(parsed.contentTable, defaultCloudConfig.contentTable),
@@ -519,7 +530,7 @@ function updateCloudStatusView(cloudState) {
   const lastSync = document.getElementById('cloud-status-last-sync');
   if (!mode || !api || !content || !stats || !lastSync) return;
 
-  mode.textContent = cloudState.enabled ? 'enabled' : 'off';
+  mode.textContent = cloudState.enabled ? (cloudState.autoSync ? 'enabled (auto)' : 'enabled (manual)') : 'off';
   api.textContent = cloudState.apiMessage || 'unknown';
   content.textContent = cloudState.contentMessage || 'idle';
   stats.textContent = cloudState.statsMessage || 'idle';
@@ -592,6 +603,7 @@ function startCloudPolling(contentRef, cloudRef, cloudState) {
   const runCycle = async () => {
     const config = cloudRef.value;
     cloudState.enabled = isCloudConfigured(config);
+    cloudState.autoSync = Boolean(config.autoSync);
     if (!cloudState.enabled) {
       cloudState.apiMessage = 'cloud off';
       cloudState.contentMessage = 'cloud off';
@@ -618,7 +630,14 @@ function startCloudPolling(contentRef, cloudRef, cloudState) {
   const restart = () => {
     stop();
     runCycle();
-    timerId = window.setInterval(runCycle, CLOUD_POLL_INTERVAL_MS);
+    const config = cloudRef.value;
+    if (!config.autoSync) {
+      cloudState.contentMessage = 'manual only';
+      cloudState.statsMessage = 'manual only';
+      updateCloudStatusView(cloudState);
+      return;
+    }
+    timerId = window.setInterval(runCycle, sanitizePollIntervalMs(config.pollIntervalMs));
   };
 
   return { restart, stop, runCycle };
@@ -717,6 +736,8 @@ function getAdminFields() {
     donationFootnote: document.getElementById('admin-donation-footnote'),
     footer: document.getElementById('admin-footer'),
     cloudEnabled: document.getElementById('admin-cloud-enabled'),
+    cloudAutoSync: document.getElementById('admin-cloud-auto-sync'),
+    cloudInterval: document.getElementById('admin-cloud-interval'),
     cloudUrl: document.getElementById('admin-cloud-url'),
     cloudKey: document.getElementById('admin-cloud-key'),
     cloudContentTable: document.getElementById('admin-cloud-content-table'),
@@ -763,6 +784,8 @@ function writeAdminForm(content, cloud) {
   fields.footer.value = content.footerHtml;
 
   fields.cloudEnabled.checked = cloud.enabled;
+  fields.cloudAutoSync.checked = cloud.autoSync !== false;
+  fields.cloudInterval.value = String(sanitizePollIntervalMs(cloud.pollIntervalMs));
   fields.cloudUrl.value = cloud.url;
   fields.cloudKey.value = cloud.anonKey;
   fields.cloudContentTable.value = cloud.contentTable;
@@ -827,6 +850,8 @@ function readCloudForm() {
   const fields = getAdminFields();
   return normalizeCloudConfig({
     enabled: fields.cloudEnabled.checked,
+    autoSync: fields.cloudAutoSync.checked,
+    pollIntervalMs: fields.cloudInterval.value,
     url: fields.cloudUrl.value,
     anonKey: fields.cloudKey.value,
     contentTable: fields.cloudContentTable.value,
@@ -990,6 +1015,20 @@ function setupAdmin(contentRef, cloudRef, cloudState, cloudPolling) {
     setAdminAccessView(false);
     return false;
   };
+
+  const applyCloudSettingsFromFields = () => {
+    if (!ensureUnlocked()) return;
+    cloudRef.value = readCloudForm();
+    cloudState.enabled = isCloudConfigured(cloudRef.value);
+    cloudState.autoSync = Boolean(cloudRef.value.autoSync);
+    saveCloudConfig(cloudRef.value);
+    updateCloudStatusView(cloudState);
+    cloudPolling.restart();
+    status(`auto sync ${cloudRef.value.autoSync ? 'on' : 'off'} (${sanitizePollIntervalMs(cloudRef.value.pollIntervalMs) / 1000}s)`);
+  };
+
+  fields.cloudAutoSync?.addEventListener('change', applyCloudSettingsFromFields);
+  fields.cloudInterval?.addEventListener('change', applyCloudSettingsFromFields);
 
   fields.heroAvatarFile.addEventListener('change', () => {
     if (!ensureUnlocked()) return;
@@ -1230,6 +1269,7 @@ function setupAdmin(contentRef, cloudRef, cloudState, cloudPolling) {
   const cloudRef = { value: loadCloudConfig() };
   const cloudState = {
     enabled: isCloudConfigured(cloudRef.value),
+    autoSync: Boolean(cloudRef.value.autoSync),
     apiMessage: 'unknown',
     contentMessage: 'idle',
     statsMessage: 'idle',

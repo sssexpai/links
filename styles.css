@@ -71,7 +71,7 @@ a:hover{filter:brightness(1.1)}
 .admin-lock-row input{flex:1 1 280px;background:#0f1218;border:1px solid #232838;border-radius:10px;padding:10px;color:var(--text);font-family:inherit}
 .admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
 .admin-grid label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
-.admin-grid input,.admin-grid textarea{width:100%;background:#0f1218;border:1px solid #232838;border-radius:10px;padding:10px;color:var(--text);font-family:inherit}
+.admin-grid input,.admin-grid textarea,.admin-grid select{width:100%;background:#0f1218;border:1px solid #232838;border-radius:10px;padding:10px;color:var(--text);font-family:inherit}
 .cloud-grid{margin-top:10px}
 .cloud-grid label span{display:block}
 .cloud-grid input[type="checkbox"]{width:20px;height:20px;accent-color:var(--accent);padding:0}
