@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="reeyanu aka Aleksandr — 16 y.o. developer. bio, projects, contacts." />
+    <title>reeyanu — bio</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230b0c0f'/%3E%3Cpath d='M20 52h60' stroke='%23ff7a18' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M40 30l-20 22 20 22' fill='none' stroke='%23ff7a18' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="noise"></div>
+    <main class="container">
+      <header class="hero">
+        <div class="prompt">guest@reeyanu:~$</div>
+        <h1 class="typewriter" aria-label="welcome!"><span id="welcome-title">welcome!</span><span class="caret" aria-hidden="true">▮</span></h1>
+        <p class="muted" id="welcome-description">hello! i'm <strong>reeyanu</strong> aka <strong>aleksandr</strong>, 16 y.o. — i build things or just nothing on the internet and I like editing in AE.</p>
+        <div class="hero-avatar-wrap">
+          <img id="hero-avatar" alt="my avatar" aria-hidden="true" />
+        </div>
+      </header>
+
+      <section class="block" id="photo-card" data-title="# profile">
+        <a class="profile-card" id="profile-card-link" href="#" target="_blank" rel="noreferrer noopener">
+          <img id="profile-card-image" alt="profile photo" />
+          <div class="profile-card-overlay"></div>
+          <div class="profile-card-meta">
+            <span class="profile-card-title" id="profile-card-title">senpai★ / beats</span>
+            <span class="profile-card-badge" id="profile-card-badge">✔</span>
+          </div>
+        </a>
+      </section>
+
+      <section class="block" id="about" data-title="# about">
+        <p id="about-text">ненавижу кодинг учу питон и все такое для програмистов you know, терминалы и аккуратные интерфейсы. чаще всего — ничего. занимаюсь эдитами и что-то пытаюсь учить.</p>
+      </section>
+
+      <section class="block" id="projects" data-title="# projects">
+        <div class="cards" id="projects-list"></div>
+      </section>
+
+      <section class="block" id="skills" data-title="# skills">
+        <ul class="list" id="skills-list"></ul>
+      </section>
+
+      <section class="block" id="contacts" data-title="# contacts">
+        <a class="contact-card big" id="contact-link" href="https://t.me/reeyanu" target="_blank" rel="noreferrer noopener">
+          <img id="tg-avatar" alt="telegram avatar" aria-hidden="true" />
+          <div class="contact-meta">
+            <div class="name" id="contact-name">настаящи reeyanu</div>
+            <div class="handle" id="contact-handle">@reeyanu</div>
+          </div>
+        </a>
+      </section>
+
+      <section class="block" id="donate" data-title="# donations">
+        <div class="donate-grid" id="donations-list"></div>
+        <p class="footnote muted" id="donation-footnote">спасибо за поддержку! ❤️</p>
+      </section>
+
+      <section class="block" id="site-stats" data-title="# stats">
+        <div class="stats-grid">
+          <div class="stat-item"><span class="muted">visits:</span> <span id="visits-total">0</span></div>
+          <div class="stat-item"><span class="muted">external clicks:</span> <span id="external-clicks-total">0</span></div>
+        </div>
+      </section>
+
+      <section class="block admin-block" id="admin" data-title="# admin panel">
+        <div class="admin-head">
+          <button class="btn" id="admin-toggle" type="button">open admin</button>
+          <span class="muted small">редактирование всей страницы + статистика</span>
+        </div>
+
+        <div id="admin-content" class="admin-content hidden">
+          <div class="admin-lock" id="admin-lock-wrap">
+            <p class="muted">админка защищена паролем</p>
+            <div class="admin-lock-row">
+              <input id="admin-password-input" type="password" placeholder="enter admin password" />
+              <button class="btn primary" id="admin-unlock" type="button">unlock</button>
+            </div>
+          </div>
+
+          <div id="admin-inner" class="hidden">
+          <div class="admin-grid">
+            <label>Welcome title<input id="admin-welcome-title" type="text" /></label>
+            <label>Welcome description<textarea id="admin-welcome-description" rows="3"></textarea></label>
+            <label>About text<textarea id="admin-about" rows="4"></textarea></label>
+            <label>Hero avatar URL<input id="admin-hero-avatar-url" type="text" placeholder="https://..." /></label>
+            <label>Hero avatar upload<input id="admin-hero-avatar-file" type="file" accept="image/*" /></label>
+
+            <label>Profile photo URL<input id="admin-profile-photo-url" type="text" placeholder="https://..." /></label>
+            <label>Profile photo upload<input id="admin-profile-photo-file" type="file" accept="image/*" /></label>
+            <label>Profile photo title<input id="admin-profile-title" type="text" /></label>
+            <label>Profile photo badge<input id="admin-profile-badge" type="text" /></label>
+            <label>Profile photo link<input id="admin-profile-link" type="text" placeholder="https://..." /></label>
+
+            <label>Projects (JSON array)<textarea id="admin-projects" rows="8"></textarea></label>
+            <label>Skills (каждая строка — отдельный скилл)<textarea id="admin-skills" rows="6"></textarea></label>
+
+            <label>Contact name<input id="admin-contact-name" type="text" /></label>
+            <label>Contact handle<input id="admin-contact-handle" type="text" /></label>
+            <label>Contact URL<input id="admin-contact-url" type="text" /></label>
+            <label>Contact avatar URL<input id="admin-contact-avatar-url" type="text" placeholder="https://..." /></label>
+
+            <label>Donations (JSON array)<textarea id="admin-donations" rows="8"></textarea></label>
+            <label>Donation footnote<input id="admin-donation-footnote" type="text" /></label>
+            <label>Footer HTML text<textarea id="admin-footer" rows="2"></textarea></label>
+          </div>
+
+          <div class="admin-grid cloud-grid">
+            <label><span>Cloud mode (Supabase)</span><input id="admin-cloud-enabled" type="checkbox" /></label>
+            <label>Supabase URL<input id="admin-cloud-url" type="text" placeholder="https://xxxx.supabase.co" /></label>
+            <label>Supabase anon key<input id="admin-cloud-key" type="text" placeholder="eyJ..." /></label>
+            <label>Content table<input id="admin-cloud-content-table" type="text" value="site_content" /></label>
+            <label>Events table<input id="admin-cloud-events-table" type="text" value="site_events" /></label>
+            <label>Content row key<input id="admin-cloud-row-key" type="text" value="main" /></label>
+          </div>
+
+          <div class="admin-actions">
+            <button class="btn primary" id="admin-save" type="button">save changes</button>
+            <button class="btn" id="admin-reset" type="button">reset to default</button>
+            <button class="btn" id="admin-export" type="button">export json</button>
+            <button class="btn" id="admin-import" type="button">import json</button>
+            <input id="admin-import-file" type="file" accept="application/json" class="hidden" />
+            <button class="btn" id="admin-clear-stats" type="button">clear stats</button>
+            <button class="btn" id="admin-cloud-pull" type="button">cloud pull</button>
+            <button class="btn" id="admin-cloud-push" type="button">cloud push</button>
+            <button class="btn" id="admin-cloud-sync-stats" type="button">cloud sync stats</button>
+            <button class="btn" id="admin-lock" type="button">lock admin</button>
+            <button class="btn" id="admin-change-password" type="button">change password</button>
+          </div>
+
+          <div class="admin-stats muted" id="admin-stats-breakdown"></div>
+          <p class="muted small" id="admin-status"></p>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer" id="footer-text">
+        <div>built by <b>noname---me:)</b> with ❤️ — <span class="muted">some design vibes</span></div>
+      </footer>
+    </main>
+
+    <script src="./main.js" defer></script>
+  </body>
+</html>
