@@ -5,7 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
     <meta name="description" content="reeyanu aka Aleksandr — 16 y.o. developer. bio, projects, contacts." />
+    <meta name="keywords" content="reeyanu, bio, links" />
+    <meta name="robots" content="index,follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="reeyanu — bio" />
+    <meta property="og:description" content="reeyanu aka Aleksandr — 16 y.o. developer. bio, projects, contacts." />
+    <meta property="og:image" content="" />
+    <meta property="og:url" content="" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="reeyanu — bio" />
+    <meta name="twitter:description" content="reeyanu aka Aleksandr — 16 y.o. developer. bio, projects, contacts." />
+    <meta name="twitter:image" content="" />
     <title>reeyanu — bio</title>
+    <link rel="canonical" href="" />
     <link rel="stylesheet" href="./styles.css" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230b0c0f'/%3E%3Cpath d='M20 52h60' stroke='%23ff7a18' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M40 30l-20 22 20 22' fill='none' stroke='%23ff7a18' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   </head>
@@ -66,10 +78,10 @@
         </div>
       </section>
 
-      <section class="block admin-block" id="admin" data-title="# admin panel">
+      <section class="block admin-block admin-stealth" id="admin" data-title="# admin panel">
         <div class="admin-head">
           <button class="btn" id="admin-toggle" type="button">open admin</button>
-          <span class="muted small">редактирование всей страницы + статистика</span>
+          <span class="muted small">редактирование всей страницы + статистика · наведи курсор внизу экрана</span>
         </div>
 
         <div id="admin-content" class="admin-content hidden">
@@ -82,7 +94,33 @@
           </div>
 
           <div id="admin-inner" class="hidden">
+          <div class="format-tools" id="admin-format-tools">
+            <span class="muted small">format line:</span>
+            <button class="btn" type="button" data-format-action="bold"><strong>B</strong></button>
+            <button class="btn" type="button" data-format-action="italic"><em>I</em></button>
+            <button class="btn" type="button" data-format-action="underline"><u>U</u></button>
+            <button class="btn" type="button" data-format-action="bullet">• list</button>
+            <button class="btn" type="button" data-format-action="heading">H3</button>
+            <button class="btn" type="button" data-format-action="code">code</button>
+            <button class="btn" type="button" data-format-action="linebreak">br</button>
+            <span class="muted small">выдели текст или просто поставь курсор в строку</span>
+          </div>
+
           <div class="admin-grid">
+            <label>Browser tab title<input id="admin-page-title" type="text" /></label>
+            <label>Meta description<textarea id="admin-meta-description" rows="2"></textarea></label>
+            <label>SEO keywords<input id="admin-seo-keywords" type="text" placeholder="word1, word2, word3" /></label>
+            <label>SEO robots<input id="admin-seo-robots" type="text" placeholder="index,follow" /></label>
+            <label>Canonical URL<input id="admin-canonical-url" type="text" placeholder="https://your-site/..." /></label>
+            <label>OG title<input id="admin-og-title" type="text" /></label>
+            <label>OG description<textarea id="admin-og-description" rows="2"></textarea></label>
+            <label>OG image URL<input id="admin-og-image" type="text" placeholder="https://.../cover.jpg" /></label>
+            <label>OG URL<input id="admin-og-url" type="text" placeholder="https://your-site/..." /></label>
+            <label>Twitter card<input id="admin-twitter-card" type="text" placeholder="summary_large_image" /></label>
+            <label>Twitter title<input id="admin-twitter-title" type="text" /></label>
+            <label>Twitter description<textarea id="admin-twitter-description" rows="2"></textarea></label>
+            <label>Twitter image URL<input id="admin-twitter-image" type="text" placeholder="https://.../cover.jpg" /></label>
+            <label>Favicon URL<input id="admin-favicon-url" type="text" placeholder="https://... или data:image/..." /></label>
             <label>Welcome title<input id="admin-welcome-title" type="text" /></label>
             <label>Welcome description<textarea id="admin-welcome-description" rows="3"></textarea></label>
             <label>About text<textarea id="admin-about" rows="4"></textarea></label>

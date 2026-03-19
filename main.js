@@ -5,9 +5,24 @@ const STORAGE_CLOUD_KEY = 'reey-site-cloud-v1';
 const STORAGE_ADMIN_PASS_HASH_KEY = 'reey-site-admin-pass-hash-v1';
 const STORAGE_ADMIN_UNLOCKED_KEY = 'reey-site-admin-unlocked-v1';
 const CLOUD_POLL_INTERVAL_MS = 10000;
+const DEFAULT_FAVICON_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230b0c0f'/%3E%3Cpath d='M20 52h60' stroke='%23ff7a18' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M40 30l-20 22 20 22' fill='none' stroke='%23ff7a18' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
 
 const defaultContent = {
   updatedAt: new Date(0).toISOString(),
+  pageTitle: 'reeyanu — bio',
+  metaDescription: 'reeyanu aka Aleksandr — 16 y.o. developer. bio, projects, contacts.',
+  seoKeywords: 'reeyanu, bio, links',
+  seoRobots: 'index,follow',
+  canonicalUrl: '',
+  ogTitle: 'reeyanu — bio',
+  ogDescription: 'reeyanu aka Aleksandr — 16 y.o. developer. bio, projects, contacts.',
+  ogImage: '',
+  ogUrl: '',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'reeyanu — bio',
+  twitterDescription: 'reeyanu aka Aleksandr — 16 y.o. developer. bio, projects, contacts.',
+  twitterImage: '',
+  faviconUrl: DEFAULT_FAVICON_URL,
   welcomeTitle: 'welcome!',
   welcomeDescription: "hello! i'm <strong>reeyanu</strong> aka <strong>aleksandr</strong>, 16 y.o. — i build things or just nothing on the internet and I like editing in AE.",
   about: 'ненавижу кодинг учу питон и все такое для програмистов you know, терминалы и аккуратные интерфейсы. чаще всего — ничего. занимаюсь эдитами и что-то пытаюсь учить.',
@@ -386,7 +401,61 @@ function renderProfileCard(profileCard, fallbackImage) {
   cardImage.src = imageUrl;
 }
 
+function toHtmlWithLineBreaks(text) {
+  return String(text || '').replace(/\n/g, '<br>');
+}
+
+function setMetaTag(selector, attrName, value) {
+  let tag = document.querySelector(selector);
+  if (!tag) {
+    tag = document.createElement('meta');
+    const match = selector.match(/\[(name|property)=\"([^\"]+)\"\]/);
+    if (match) {
+      tag.setAttribute(match[1], match[2]);
+    }
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute(attrName, value || '');
+}
+
+function setCanonical(url) {
+  let canonical = document.querySelector('link[rel="canonical"]');
+  if (!canonical) {
+    canonical = document.createElement('link');
+    canonical.setAttribute('rel', 'canonical');
+    document.head.appendChild(canonical);
+  }
+  canonical.setAttribute('href', url || window.location.href);
+}
+
+function applySeo(content) {
+  document.title = content.pageTitle || defaultContent.pageTitle;
+
+  setMetaTag('meta[name="description"]', 'content', content.metaDescription || defaultContent.metaDescription);
+  setMetaTag('meta[name="keywords"]', 'content', content.seoKeywords || defaultContent.seoKeywords);
+  setMetaTag('meta[name="robots"]', 'content', content.seoRobots || defaultContent.seoRobots);
+
+  setMetaTag('meta[property="og:type"]', 'content', 'website');
+  setMetaTag('meta[property="og:title"]', 'content', content.ogTitle || content.pageTitle || defaultContent.ogTitle);
+  setMetaTag('meta[property="og:description"]', 'content', content.ogDescription || content.metaDescription || defaultContent.ogDescription);
+  setMetaTag('meta[property="og:image"]', 'content', content.ogImage || '');
+  setMetaTag('meta[property="og:url"]', 'content', content.ogUrl || content.canonicalUrl || window.location.href);
+
+  setMetaTag('meta[name="twitter:card"]', 'content', content.twitterCard || defaultContent.twitterCard);
+  setMetaTag('meta[name="twitter:title"]', 'content', content.twitterTitle || content.ogTitle || content.pageTitle || defaultContent.twitterTitle);
+  setMetaTag('meta[name="twitter:description"]', 'content', content.twitterDescription || content.ogDescription || content.metaDescription || defaultContent.twitterDescription);
+  setMetaTag('meta[name="twitter:image"]', 'content', content.twitterImage || content.ogImage || '');
+
+  setCanonical(content.canonicalUrl || window.location.href);
+}
+
 function renderContent(content, cloudRef) {
+  applySeo(content);
+  const favicon = document.querySelector('link[rel="icon"]');
+  if (favicon) {
+    favicon.setAttribute('href', content.faviconUrl || DEFAULT_FAVICON_URL);
+  }
+
   const welcomeTitle = document.getElementById('welcome-title');
   const welcomeDescription = document.getElementById('welcome-description');
   const aboutText = document.getElementById('about-text');
@@ -399,7 +468,7 @@ function renderContent(content, cloudRef) {
 
   if (welcomeTitle) welcomeTitle.textContent = content.welcomeTitle;
   if (welcomeDescription) welcomeDescription.innerHTML = content.welcomeDescription;
-  if (aboutText) aboutText.textContent = content.about;
+  if (aboutText) aboutText.innerHTML = toHtmlWithLineBreaks(content.about);
   if (contactName) contactName.textContent = content.contact.name;
   if (contactHandle) contactHandle.textContent = content.contact.handle;
   if (contactLink) contactLink.href = content.contact.url || '#';
@@ -614,6 +683,20 @@ function getAdminFields() {
     inner: document.getElementById('admin-inner'),
     passwordInput: document.getElementById('admin-password-input'),
     unlockButton: document.getElementById('admin-unlock'),
+    pageTitle: document.getElementById('admin-page-title'),
+    metaDescription: document.getElementById('admin-meta-description'),
+    seoKeywords: document.getElementById('admin-seo-keywords'),
+    seoRobots: document.getElementById('admin-seo-robots'),
+    canonicalUrl: document.getElementById('admin-canonical-url'),
+    ogTitle: document.getElementById('admin-og-title'),
+    ogDescription: document.getElementById('admin-og-description'),
+    ogImage: document.getElementById('admin-og-image'),
+    ogUrl: document.getElementById('admin-og-url'),
+    twitterCard: document.getElementById('admin-twitter-card'),
+    twitterTitle: document.getElementById('admin-twitter-title'),
+    twitterDescription: document.getElementById('admin-twitter-description'),
+    twitterImage: document.getElementById('admin-twitter-image'),
+    faviconUrl: document.getElementById('admin-favicon-url'),
     welcomeTitle: document.getElementById('admin-welcome-title'),
     welcomeDescription: document.getElementById('admin-welcome-description'),
     about: document.getElementById('admin-about'),
@@ -647,6 +730,20 @@ function getAdminFields() {
 
 function writeAdminForm(content, cloud) {
   const fields = getAdminFields();
+  fields.pageTitle.value = content.pageTitle || defaultContent.pageTitle;
+  fields.metaDescription.value = content.metaDescription || defaultContent.metaDescription;
+  fields.seoKeywords.value = content.seoKeywords || defaultContent.seoKeywords;
+  fields.seoRobots.value = content.seoRobots || defaultContent.seoRobots;
+  fields.canonicalUrl.value = content.canonicalUrl || '';
+  fields.ogTitle.value = content.ogTitle || defaultContent.ogTitle;
+  fields.ogDescription.value = content.ogDescription || defaultContent.ogDescription;
+  fields.ogImage.value = content.ogImage || '';
+  fields.ogUrl.value = content.ogUrl || '';
+  fields.twitterCard.value = content.twitterCard || defaultContent.twitterCard;
+  fields.twitterTitle.value = content.twitterTitle || defaultContent.twitterTitle;
+  fields.twitterDescription.value = content.twitterDescription || defaultContent.twitterDescription;
+  fields.twitterImage.value = content.twitterImage || '';
+  fields.faviconUrl.value = content.faviconUrl || DEFAULT_FAVICON_URL;
   fields.welcomeTitle.value = content.welcomeTitle;
   fields.welcomeDescription.value = content.welcomeDescription;
   fields.about.value = content.about;
@@ -684,6 +781,20 @@ function readAdminContentForm(currentContent) {
   const fields = getAdminFields();
   const next = clone(currentContent);
 
+  next.pageTitle = fields.pageTitle.value.trim() || defaultContent.pageTitle;
+  next.metaDescription = fields.metaDescription.value.trim() || defaultContent.metaDescription;
+  next.seoKeywords = fields.seoKeywords.value.trim() || defaultContent.seoKeywords;
+  next.seoRobots = fields.seoRobots.value.trim() || defaultContent.seoRobots;
+  next.canonicalUrl = fields.canonicalUrl.value.trim();
+  next.ogTitle = fields.ogTitle.value.trim() || next.pageTitle;
+  next.ogDescription = fields.ogDescription.value.trim() || next.metaDescription;
+  next.ogImage = fields.ogImage.value.trim();
+  next.ogUrl = fields.ogUrl.value.trim() || next.canonicalUrl;
+  next.twitterCard = fields.twitterCard.value.trim() || defaultContent.twitterCard;
+  next.twitterTitle = fields.twitterTitle.value.trim() || next.ogTitle;
+  next.twitterDescription = fields.twitterDescription.value.trim() || next.ogDescription;
+  next.twitterImage = fields.twitterImage.value.trim() || next.ogImage;
+  next.faviconUrl = fields.faviconUrl.value.trim() || DEFAULT_FAVICON_URL;
   next.welcomeTitle = fields.welcomeTitle.value.trim() || 'welcome!';
   next.welcomeDescription = fields.welcomeDescription.value.trim() || defaultContent.welcomeDescription;
   next.about = fields.about.value.trim();
@@ -721,6 +832,69 @@ function readCloudForm() {
     contentTable: fields.cloudContentTable.value,
     eventsTable: fields.cloudEventsTable.value,
     rowKey: fields.cloudRowKey.value
+  });
+}
+
+function replaceSelectionOrCurrentLine(field, transform) {
+  const value = field.value || '';
+  const start = field.selectionStart ?? 0;
+  const end = field.selectionEnd ?? start;
+
+  let rangeStart = start;
+  let rangeEnd = end;
+  if (start === end) {
+    rangeStart = value.lastIndexOf('\n', start - 1) + 1;
+    const nextBreak = value.indexOf('\n', start);
+    rangeEnd = nextBreak === -1 ? value.length : nextBreak;
+  }
+
+  const selected = value.slice(rangeStart, rangeEnd);
+  const updated = transform(selected);
+  field.value = value.slice(0, rangeStart) + updated + value.slice(rangeEnd);
+
+  const caret = rangeStart + updated.length;
+  field.setSelectionRange(caret, caret);
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function setupAdminFormatter() {
+  const buttons = document.querySelectorAll('#admin-format-tools [data-format-action]');
+  if (!buttons.length) return;
+
+  let activeField = null;
+  const editableFields = document.querySelectorAll('#admin-inner textarea, #admin-inner input[type="text"]');
+  editableFields.forEach((field) => {
+    if (field.id.startsWith('admin-cloud-') || field.id === 'admin-password-input') return;
+    field.addEventListener('focus', () => {
+      activeField = field;
+    });
+  });
+
+  const wrap = (left, right) => (text) => `${left}${text}${right}`;
+  const prefix = (textPrefix) => (text) => {
+    if (!text) return `${textPrefix}`;
+    return text.startsWith(textPrefix) ? text : `${textPrefix}${text}`;
+  };
+
+  const actions = {
+    bold: wrap('<strong>', '</strong>'),
+    italic: wrap('<em>', '</em>'),
+    underline: wrap('<u>', '</u>'),
+    heading: wrap('<h3>', '</h3>'),
+    code: wrap('<code>', '</code>'),
+    bullet: prefix('• '),
+    linebreak: (text) => `${text}<br>`
+  };
+
+  buttons.forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!activeField) return;
+      const action = button.getAttribute('data-format-action') || '';
+      const formatter = actions[action];
+      if (!formatter) return;
+      replaceSelectionOrCurrentLine(activeField, formatter);
+      activeField.focus();
+    });
   });
 }
 
@@ -763,6 +937,7 @@ async function unlockAdminFromInput() {
 }
 
 function setupAdmin(contentRef, cloudRef, cloudState, cloudPolling) {
+  const adminSection = document.getElementById('admin');
   const adminToggle = document.getElementById('admin-toggle');
   const adminContent = document.getElementById('admin-content');
   const saveButton = document.getElementById('admin-save');
@@ -775,16 +950,19 @@ function setupAdmin(contentRef, cloudRef, cloudState, cloudPolling) {
   const cloudPushButton = document.getElementById('admin-cloud-push');
   const cloudSyncStatsButton = document.getElementById('admin-cloud-sync-stats');
   const fields = getAdminFields();
+  setupAdminFormatter();
 
-  if (!adminToggle || !adminContent || !saveButton || !resetButton || !exportButton || !importButton || !importFile || !clearStatsButton || !cloudPullButton || !cloudPushButton || !cloudSyncStatsButton || !fields.unlockButton || !fields.passwordInput || !fields.lockButton || !fields.changePasswordButton) return;
+  if (!adminSection || !adminToggle || !adminContent || !saveButton || !resetButton || !exportButton || !importButton || !importFile || !clearStatsButton || !cloudPullButton || !cloudPushButton || !cloudSyncStatsButton || !fields.unlockButton || !fields.passwordInput || !fields.lockButton || !fields.changePasswordButton) return;
 
   const isOpen = localStorage.getItem(STORAGE_ADMIN_OPEN_KEY) === '1';
   adminContent.classList.toggle('hidden', !isOpen);
+  adminSection.classList.toggle('admin-pinned', isOpen);
   adminToggle.textContent = isOpen ? 'close admin' : 'open admin';
 
   adminToggle.addEventListener('click', () => {
     const open = adminContent.classList.contains('hidden');
     adminContent.classList.toggle('hidden', !open);
+    adminSection.classList.toggle('admin-pinned', open);
     adminToggle.textContent = open ? 'close admin' : 'open admin';
     localStorage.setItem(STORAGE_ADMIN_OPEN_KEY, open ? '1' : '0');
   });
