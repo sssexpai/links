@@ -7,6 +7,20 @@ const STORAGE_ADMIN_UNLOCKED_KEY = 'reey-site-admin-unlocked-v1';
 const DEFAULT_CLOUD_POLL_INTERVAL_MS = 10000;
 const ALLOWED_CLOUD_INTERVALS = [5000, 10000, 15000, 30000, 60000, 120000];
 const DEFAULT_FAVICON_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230b0c0f'/%3E%3Cpath d='M20 52h60' stroke='%23ff7a18' stroke-width='8' stroke-linecap='round'/%3E%3Cpath d='M40 30l-20 22 20 22' fill='none' stroke='%23ff7a18' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
+const SOCIAL_SERVICES = [
+  { value: 'telegram', label: 'Telegram', icon: '✈️' },
+  { value: 'tiktok', label: 'TikTok', icon: '🎵' },
+  { value: 'youtube', label: 'YouTube', icon: '▶️' },
+  { value: 'instagram', label: 'Instagram', icon: '📷' },
+  { value: 'discord', label: 'Discord', icon: '💬' },
+  { value: 'github', label: 'GitHub', icon: '🐙' },
+  { value: 'twitter', label: 'X / Twitter', icon: '𝕏' },
+  { value: 'twitch', label: 'Twitch', icon: '🟣' },
+  { value: 'vk', label: 'VK', icon: '🖇️' },
+  { value: 'website', label: 'Website', icon: '🌐' },
+  { value: 'other', label: 'Other', icon: '🔗' }
+];
+const SOCIAL_SERVICE_MAP = Object.fromEntries(SOCIAL_SERVICES.map((entry) => [entry.value, entry]));
 
 const defaultContent = {
   updatedAt: new Date(0).toISOString(),
@@ -35,6 +49,26 @@ const defaultContent = {
     badge: '✔',
     link: '#'
   },
+  socialLinks: [
+    {
+      service: 'tiktok',
+      title: 'TikTok Projects',
+      subtitle: '@sweexyzt',
+      url: 'https://www.tiktok.com/@sweexyzt'
+    },
+    {
+      service: 'telegram',
+      title: 'Мой Telegram',
+      subtitle: '@reeyanu',
+      url: 'https://t.me/reeyanu'
+    },
+    {
+      service: 'github',
+      title: 'GitHub',
+      subtitle: 'profile / repositories',
+      url: 'https://github.com/'
+    }
+  ],
   projects: [
     {
       title: 'TikTok Projects',
@@ -93,12 +127,23 @@ function clone(value) {
 
 function normalizeContent(input) {
   const parsed = input && typeof input === 'object' ? input : {};
+  const migratedSocialLinks = Array.isArray(parsed.socialLinks)
+    ? parsed.socialLinks
+    : (Array.isArray(parsed.projects)
+      ? parsed.projects.map((item) => ({
+          service: 'other',
+          title: String(item.title || 'Link'),
+          subtitle: String(item.sub || item.desc || ''),
+          url: String(item.url || '#')
+        }))
+      : defaultContent.socialLinks);
   return {
     ...clone(defaultContent),
     ...parsed,
     cloudConfigMirror: parsed.cloudConfigMirror ? normalizeCloudConfig(parsed.cloudConfigMirror) : null,
     profileCard: { ...defaultContent.profileCard, ...(parsed.profileCard || {}) },
     contact: { ...defaultContent.contact, ...(parsed.contact || {}) },
+    socialLinks: Array.isArray(migratedSocialLinks) ? migratedSocialLinks : defaultContent.socialLinks,
     projects: Array.isArray(parsed.projects) ? parsed.projects : defaultContent.projects,
     skills: Array.isArray(parsed.skills) ? parsed.skills : defaultContent.skills,
     donations: Array.isArray(parsed.donations) ? parsed.donations : defaultContent.donations,
@@ -248,11 +293,26 @@ function supabaseHeaders(config, withJson = true) {
   return headers;
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      cache: 'no-store'
+    });
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function cloudPullContent(config) {
   if (!isCloudConfigured(config)) return null;
   const rowKey = encodeURIComponent(config.rowKey);
   const url = `${config.url}/rest/v1/${config.contentTable}?key=eq.${rowKey}&select=data,updated_at&limit=1`;
-  const response = await fetch(url, { headers: supabaseHeaders(config, false) });
+  const response = await fetchWithTimeout(url, { headers: supabaseHeaders(config, false) });
   if (!response.ok) throw new Error(`cloud pull failed: ${response.status}`);
   const rows = await response.json();
   if (!Array.isArray(rows) || rows.length === 0) return null;
@@ -266,7 +326,7 @@ async function cloudCheckApi(config) {
   if (!isCloudConfigured(config)) return { ok: false, message: 'cloud off' };
   const url = `${config.url}/rest/v1/${config.contentTable}?select=key&limit=1`;
   try {
-    const response = await fetch(url, { headers: supabaseHeaders(config, false) });
+    const response = await fetchWithTimeout(url, { headers: supabaseHeaders(config, false) }, 8000);
     if (!response.ok) return { ok: false, message: `http ${response.status}` };
     return { ok: true, message: 'online' };
   } catch {
@@ -286,7 +346,7 @@ async function cloudPushContent(config, content) {
   const url = `${config.url}/rest/v1/${config.contentTable}`;
   const headers = supabaseHeaders(config, true);
   headers.Prefer = 'resolution=merge-duplicates,return=representation';
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     method: 'POST',
     headers,
     body: JSON.stringify(payload)
@@ -304,18 +364,18 @@ async function cloudTrackEvent(config, eventType, urlValue = '') {
     event_url: urlValue,
     created_at: new Date().toISOString()
   }];
-  const response = await fetch(`${config.url}/rest/v1/${config.eventsTable}`, {
+  const response = await fetchWithTimeout(`${config.url}/rest/v1/${config.eventsTable}`, {
     method: 'POST',
     headers: supabaseHeaders(config, true),
     body: JSON.stringify(payload)
-  });
+  }, 8000);
   if (!response.ok) throw new Error(`event write failed: ${response.status}`);
 }
 
 async function cloudFetchStats(config) {
   if (!isCloudConfigured(config)) return null;
   const query = `${config.url}/rest/v1/${config.eventsTable}?select=event_type,event_url&order=id.desc&limit=10000`;
-  const response = await fetch(query, { headers: supabaseHeaders(config, false) });
+  const response = await fetchWithTimeout(query, { headers: supabaseHeaders(config, false) });
   if (!response.ok) throw new Error(`stats read failed: ${response.status}`);
   const rows = await response.json();
   const stats = { visitsTotal: 0, externalClicksTotal: 0, externalByUrl: {} };
@@ -335,7 +395,7 @@ async function cloudFetchStats(config) {
 
 async function cloudClearStats(config) {
   if (!isCloudConfigured(config)) return;
-  const response = await fetch(`${config.url}/rest/v1/${config.eventsTable}?id=gt.0`, {
+  const response = await fetchWithTimeout(`${config.url}/rest/v1/${config.eventsTable}?id=gt.0`, {
     method: 'DELETE',
     headers: supabaseHeaders(config, false)
   });
@@ -365,33 +425,31 @@ function createCopyButton(value) {
   return button;
 }
 
-function renderProjects(projects) {
-  const root = document.getElementById('projects-list');
+function getSocialService(service) {
+  return SOCIAL_SERVICE_MAP[service] || SOCIAL_SERVICE_MAP.other;
+}
+
+function renderSocialLinks(links) {
+  const root = document.getElementById('social-links-list');
   if (!root) return;
   root.innerHTML = '';
-  projects.forEach((project) => {
+
+  links.forEach((entry) => {
+    const service = getSocialService(entry.service);
     const a = document.createElement('a');
-    a.className = 'card';
-    a.href = project.url || '#';
+    a.className = 'card social-card';
+    a.href = entry.url || '#';
     a.target = '_blank';
     a.rel = 'noreferrer noopener';
     a.innerHTML = `
-      <span class="card-title">${project.title || ''}</span>
-      <span class="card-sub">${project.sub || ''}</span>
-      <span class="card-desc">${project.desc || ''}</span>
+      <span class="social-icon" aria-hidden="true">${service.icon}</span>
+      <span class="social-meta">
+        <span class="card-title">${entry.title || service.label}</span>
+        <span class="card-sub">${entry.subtitle || service.label}</span>
+        <span class="card-desc">${entry.url || ''}</span>
+      </span>
     `;
     root.appendChild(a);
-  });
-}
-
-function renderSkills(skills) {
-  const root = document.getElementById('skills-list');
-  if (!root) return;
-  root.innerHTML = '';
-  skills.forEach((skill) => {
-    const li = document.createElement('li');
-    li.innerHTML = skill;
-    root.appendChild(li);
   });
 }
 
@@ -518,8 +576,7 @@ function renderContent(content, cloudRef) {
   if (donationFootnote) donationFootnote.textContent = content.donationFootnote;
   if (footerText) footerText.innerHTML = `<div>${content.footerHtml}</div>`;
 
-  renderProjects(content.projects);
-  renderSkills(content.skills);
+  renderSocialLinks(content.socialLinks || []);
   renderDonations(content.donations);
   renderHeroAvatar(content.heroAvatarUrl);
   renderProfileCard(content.profileCard || {}, content.heroAvatarUrl || content.contact.avatarUrl || '');
@@ -548,6 +605,10 @@ function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleString('ru-RU');
+}
+
+function contentSignature(content) {
+  return JSON.stringify(normalizeContent(content));
 }
 
 function updateCloudStatusView(cloudState) {
@@ -581,9 +642,9 @@ async function syncContentFromCloud(cloudConfig, contentRef, cloudRef, cloudStat
 
   applyCloudMirrorFromContent(remote, cloudRef);
 
-  const remoteTime = Date.parse(remote.updatedAt || '') || 0;
-  const localTime = Date.parse(contentRef.value.updatedAt || '') || 0;
-  if (remoteTime > localTime) {
+  const remoteSig = contentSignature(remote);
+  const localSig = contentSignature(contentRef.value);
+  if (remoteSig !== localSig) {
     contentRef.value = normalizeContent(remote);
     saveContent(contentRef.value);
     renderContent(contentRef.value, cloudRef);
@@ -622,6 +683,8 @@ async function syncStatsFromCloudWithState(cloudConfig, cloudState) {
 
 function startCloudPolling(contentRef, cloudRef, cloudState) {
   let timerId = null;
+  let cycleRunning = false;
+  let cycleCount = 0;
 
   const stop = () => {
     if (timerId) {
@@ -631,6 +694,9 @@ function startCloudPolling(contentRef, cloudRef, cloudState) {
   };
 
   const runCycle = async () => {
+    if (cycleRunning) return;
+    cycleRunning = true;
+    try {
     const config = cloudRef.value;
     cloudState.enabled = isCloudConfigured(config);
     cloudState.autoSync = Boolean(config.autoSync);
@@ -649,11 +715,17 @@ function startCloudPolling(contentRef, cloudRef, cloudState) {
 
     try {
       await syncContentFromCloud(config, contentRef, cloudRef, cloudState);
-      await syncStatsFromCloudWithState(config, cloudState);
+      cycleCount += 1;
+      if (cycleCount % 3 === 0) {
+        await syncStatsFromCloudWithState(config, cloudState);
+      }
     } catch {
       cloudState.contentMessage = 'sync error';
       cloudState.statsMessage = 'sync error';
       updateCloudStatusView(cloudState);
+    }
+    } finally {
+      cycleRunning = false;
     }
   };
 
@@ -756,8 +828,8 @@ function getAdminFields() {
     profileTitle: document.getElementById('admin-profile-title'),
     profileBadge: document.getElementById('admin-profile-badge'),
     profileLink: document.getElementById('admin-profile-link'),
-    projects: document.getElementById('admin-projects'),
-    skills: document.getElementById('admin-skills'),
+    socialList: document.getElementById('admin-social-list'),
+    socialAdd: document.getElementById('admin-social-add'),
     contactName: document.getElementById('admin-contact-name'),
     contactHandle: document.getElementById('admin-contact-handle'),
     contactUrl: document.getElementById('admin-contact-url'),
@@ -803,8 +875,7 @@ function writeAdminForm(content, cloud) {
   fields.profileTitle.value = content.profileCard?.title || '';
   fields.profileBadge.value = content.profileCard?.badge || '';
   fields.profileLink.value = content.profileCard?.link || '';
-  fields.projects.value = JSON.stringify(content.projects, null, 2);
-  fields.skills.value = content.skills.join('\n');
+  renderAdminSocialEditor(content.socialLinks || []);
   fields.contactName.value = content.contact.name;
   fields.contactHandle.value = content.contact.handle;
   fields.contactUrl.value = content.contact.url;
@@ -858,8 +929,9 @@ function readAdminContentForm(currentContent) {
     badge: fields.profileBadge.value.trim() || defaultContent.profileCard.badge,
     link: fields.profileLink.value.trim() || '#'
   };
-  next.projects = JSON.parse(fields.projects.value || '[]');
-  next.skills = fields.skills.value.split('\n').map((s) => s.trim()).filter(Boolean);
+  next.socialLinks = readAdminSocialEditor();
+  next.projects = [];
+  next.skills = [];
   next.contact.name = fields.contactName.value.trim();
   next.contact.handle = fields.contactHandle.value.trim();
   next.contact.url = fields.contactUrl.value.trim();
@@ -869,8 +941,8 @@ function readAdminContentForm(currentContent) {
   next.footerHtml = fields.footer.value.trim();
   next.updatedAt = new Date().toISOString();
 
-  if (!Array.isArray(next.projects) || !Array.isArray(next.donations)) {
-    throw new Error('projects/donations должны быть JSON-массивами');
+  if (!Array.isArray(next.socialLinks) || !Array.isArray(next.donations)) {
+    throw new Error('socialLinks/donations должны быть массивами');
   }
 
   return normalizeContent(next);
@@ -953,6 +1025,83 @@ function setupAdminFormatter() {
   });
 }
 
+function createAdminSocialRow(data = {}) {
+  const row = document.createElement('div');
+  row.className = 'admin-social-row';
+
+  const serviceSelect = document.createElement('select');
+  serviceSelect.className = 'admin-social-service';
+  SOCIAL_SERVICES.forEach((service) => {
+    const option = document.createElement('option');
+    option.value = service.value;
+    option.textContent = `${service.icon} ${service.label}`;
+    if ((data.service || 'other') === service.value) option.selected = true;
+    serviceSelect.appendChild(option);
+  });
+
+  const titleInput = document.createElement('input');
+  titleInput.type = 'text';
+  titleInput.className = 'admin-social-title';
+  titleInput.placeholder = 'Title';
+  titleInput.value = data.title || '';
+
+  const urlInput = document.createElement('input');
+  urlInput.type = 'text';
+  urlInput.className = 'admin-social-url';
+  urlInput.placeholder = 'https://...';
+  urlInput.value = data.url || '';
+
+  const subtitleInput = document.createElement('input');
+  subtitleInput.type = 'text';
+  subtitleInput.className = 'admin-social-subtitle';
+  subtitleInput.placeholder = '@username / description';
+  subtitleInput.value = data.subtitle || '';
+
+  const removeButton = document.createElement('button');
+  removeButton.type = 'button';
+  removeButton.className = 'btn';
+  removeButton.textContent = 'remove';
+  removeButton.addEventListener('click', () => row.remove());
+
+  const titleWrap = document.createElement('div');
+  titleWrap.appendChild(titleInput);
+  const subtitleWrap = document.createElement('div');
+  subtitleWrap.appendChild(subtitleInput);
+  const urlWrap = document.createElement('div');
+  urlWrap.appendChild(urlInput);
+
+  row.appendChild(serviceSelect);
+  row.appendChild(titleWrap);
+  row.appendChild(urlWrap);
+  row.appendChild(removeButton);
+  row.appendChild(subtitleWrap);
+  return row;
+}
+
+function renderAdminSocialEditor(links) {
+  const fields = getAdminFields();
+  if (!fields.socialList) return;
+  fields.socialList.innerHTML = '';
+  (Array.isArray(links) ? links : []).forEach((entry) => {
+    fields.socialList.appendChild(createAdminSocialRow(entry));
+  });
+  if (!fields.socialList.children.length) {
+    fields.socialList.appendChild(createAdminSocialRow({ service: 'telegram', title: 'Telegram', subtitle: '@username', url: 'https://t.me/' }));
+  }
+}
+
+function readAdminSocialEditor() {
+  const fields = getAdminFields();
+  if (!fields.socialList) return [];
+  return Array.from(fields.socialList.querySelectorAll('.admin-social-row')).map((row) => {
+    const service = row.querySelector('.admin-social-service')?.value || 'other';
+    const title = row.querySelector('.admin-social-title')?.value?.trim() || getSocialService(service).label;
+    const subtitle = row.querySelector('.admin-social-subtitle')?.value?.trim() || '';
+    const url = row.querySelector('.admin-social-url')?.value?.trim() || '#';
+    return { service, title, subtitle, url };
+  }).filter((entry) => entry.url && entry.url !== '#');
+}
+
 function setAdminAccessView(unlocked) {
   const fields = getAdminFields();
   if (!fields.lockWrap || !fields.inner) return;
@@ -991,6 +1140,42 @@ async function unlockAdminFromInput() {
   return true;
 }
 
+function setupStealthAdminHover(adminSection) {
+  const hoverZone = document.getElementById('admin-hover-zone');
+  if (!hoverZone || !adminSection) return;
+
+  let revealTimer = null;
+
+  const clearRevealTimer = () => {
+    if (!revealTimer) return;
+    clearTimeout(revealTimer);
+    revealTimer = null;
+  };
+
+  const startDelayedReveal = () => {
+    if (adminSection.classList.contains('admin-pinned')) return;
+    clearRevealTimer();
+    revealTimer = window.setTimeout(() => {
+      adminSection.classList.add('admin-hover-open');
+    }, 3000);
+  };
+
+  const hideIfUnpinned = () => {
+    clearRevealTimer();
+    if (adminSection.classList.contains('admin-pinned')) return;
+    adminSection.classList.remove('admin-hover-open');
+  };
+
+  hoverZone.addEventListener('mouseenter', startDelayedReveal);
+  hoverZone.addEventListener('mouseleave', clearRevealTimer);
+  adminSection.addEventListener('mouseenter', () => {
+    if (adminSection.classList.contains('admin-pinned')) return;
+    clearRevealTimer();
+    adminSection.classList.add('admin-hover-open');
+  });
+  adminSection.addEventListener('mouseleave', hideIfUnpinned);
+}
+
 function setupAdmin(contentRef, cloudRef, cloudState, cloudPolling) {
   const adminSection = document.getElementById('admin');
   const adminToggle = document.getElementById('admin-toggle');
@@ -1009,18 +1194,27 @@ function setupAdmin(contentRef, cloudRef, cloudState, cloudPolling) {
 
   if (!adminSection || !adminToggle || !adminContent || !saveButton || !resetButton || !exportButton || !importButton || !importFile || !clearStatsButton || !cloudPullButton || !cloudPushButton || !cloudSyncStatsButton || !fields.unlockButton || !fields.passwordInput || !fields.lockButton || !fields.changePasswordButton) return;
 
+  fields.socialAdd?.addEventListener('click', () => {
+    if (!fields.socialList) return;
+    fields.socialList.appendChild(createAdminSocialRow({ service: 'other', title: '', subtitle: '', url: '' }));
+  });
+
   const isOpen = localStorage.getItem(STORAGE_ADMIN_OPEN_KEY) === '1';
   adminContent.classList.toggle('hidden', !isOpen);
   adminSection.classList.toggle('admin-pinned', isOpen);
+  adminSection.classList.remove('admin-hover-open');
   adminToggle.textContent = isOpen ? 'close admin' : 'open admin';
 
   adminToggle.addEventListener('click', () => {
     const open = adminContent.classList.contains('hidden');
     adminContent.classList.toggle('hidden', !open);
     adminSection.classList.toggle('admin-pinned', open);
+    adminSection.classList.remove('admin-hover-open');
     adminToggle.textContent = open ? 'close admin' : 'open admin';
     localStorage.setItem(STORAGE_ADMIN_OPEN_KEY, open ? '1' : '0');
   });
+
+  setupStealthAdminHover(adminSection);
 
   const hasPassword = Boolean(getAdminPassHash());
   const unlocked = hasPassword ? isAdminUnlocked() : false;

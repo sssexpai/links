@@ -48,12 +48,8 @@
         <p id="about-text">ненавижу кодинг учу питон и все такое для програмистов you know, терминалы и аккуратные интерфейсы. чаще всего — ничего. занимаюсь эдитами и что-то пытаюсь учить.</p>
       </section>
 
-      <section class="block" id="projects" data-title="# projects">
-        <div class="cards" id="projects-list"></div>
-      </section>
-
-      <section class="block" id="skills" data-title="# skills">
-        <ul class="list" id="skills-list"></ul>
+      <section class="block" id="social-links" data-title="# social links">
+        <div class="cards social-cards" id="social-links-list"></div>
       </section>
 
       <section class="block" id="contacts" data-title="# contacts">
@@ -77,6 +73,8 @@
           <div class="stat-item"><span class="muted">external clicks:</span> <span id="external-clicks-total">0</span></div>
         </div>
       </section>
+
+      <div id="admin-hover-zone" class="admin-hover-zone" aria-hidden="true"></div>
 
       <section class="block admin-block admin-stealth" id="admin" data-title="# admin panel">
         <div class="admin-head">
@@ -133,8 +131,14 @@
             <label>Profile photo badge<input id="admin-profile-badge" type="text" /></label>
             <label>Profile photo link<input id="admin-profile-link" type="text" placeholder="https://..." /></label>
 
-            <label>Projects (JSON array)<textarea id="admin-projects" rows="8"></textarea></label>
-            <label>Skills (каждая строка — отдельный скилл)<textarea id="admin-skills" rows="6"></textarea></label>
+            <div class="admin-span-full admin-social-editor">
+              <div class="admin-social-head">
+                <span class="muted">Social links</span>
+                <button class="btn" id="admin-social-add" type="button">+ add social link</button>
+              </div>
+              <div id="admin-social-list"></div>
+              <p class="muted small">Выбирай сервис, вставляй ссылку и название — блок social links обновится после save changes.</p>
+            </div>
 
             <label>Contact name<input id="admin-contact-name" type="text" /></label>
             <label>Contact handle<input id="admin-contact-handle" type="text" /></label>
